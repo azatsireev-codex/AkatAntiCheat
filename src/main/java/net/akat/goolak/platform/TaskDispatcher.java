@@ -44,10 +44,29 @@ public final class TaskDispatcher {
     }
 
     try {
-      taskHandle.getClass().getMethod("cancel").invoke(taskHandle);
-    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
+      if (tryCancelViaScheduledTaskInterface(taskHandle)) {
+        return;
+      }
+
+      Method cancel = taskHandle.getClass().getDeclaredMethod("cancel");
+      cancel.setAccessible(true);
+      cancel.invoke(taskHandle);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | ClassNotFoundException
+        exception) {
       throw new IllegalStateException("Failed to cancel Folia task", exception);
     }
+  }
+
+  private boolean tryCancelViaScheduledTaskInterface(Object taskHandle)
+      throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, ClassNotFoundException {
+    Class<?> scheduledTaskType = Class.forName("io.papermc.paper.threadedregions.scheduler.ScheduledTask");
+    if (!scheduledTaskType.isInstance(taskHandle)) {
+      return false;
+    }
+
+    Method cancel = scheduledTaskType.getMethod("cancel");
+    cancel.invoke(taskHandle);
+    return true;
   }
 
   public void executePlayerTask(Player player, Runnable runnable) {
