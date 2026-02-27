@@ -16,12 +16,12 @@ public final class LightXRayPlugin extends JavaPlugin {
     this.service = new LightXRayService(this, config);
     this.service.start();
 
-    PluginCommand command = Objects.requireNonNull(this.getCommand("lightxray"), "Missing command lightxray");
+    PluginCommand command = Objects.requireNonNull(this.getCommand("akatanticheat"), "Missing command akatanticheat");
     command.setExecutor(new LightXRayCommand(this));
 
     this.getServer().getPluginManager().registerEvents(new LightXRayListener(this.service), this);
 
-    this.getLogger().info("LightXRay enabled. Boundary-only masking is active.");
+    this.getLogger().info("AkatAntiCheat enabled. Boundary-only masking is active.");
   }
 
   @Override

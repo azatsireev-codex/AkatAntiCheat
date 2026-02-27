@@ -9,10 +9,10 @@
     <version>${revision}</version>
   </parent>
 
-  <artifactId>lightxray-plugin</artifactId>
+  <artifactId>akatanticheat-plugin</artifactId>
   <packaging>jar</packaging>
-  <name>LightXRay Plugin</name>
-  <description>Minimal boundary-only anti-xray plugin.</description>
+  <name>AkatAntiCheat Plugin</name>
+  <description>AkatAntiCheat boundary-only anti-xray plugin.</description>
 
   <dependencies>
     <dependency>

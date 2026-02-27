@@ -1,13 +1,13 @@
-name: LightXRay
+name: AkatAntiCheat
 version: ${project.version}
 main: net.imprex.lightxray.LightXRayPlugin
 api-version: '1.16'
 authors: [Imprex]
 commands:
-  lightxray:
-    description: LightXRay admin command
+  akatanticheat:
+    description: AkatAntiCheat admin command
     usage: /<command> reload
-    permission: lightxray.admin
+    permission: akatanticheat.admin
 permissions:
-  lightxray.admin:
+  akatanticheat.admin:
     default: op
