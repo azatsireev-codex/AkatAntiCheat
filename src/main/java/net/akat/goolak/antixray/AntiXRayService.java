@@ -1,11 +1,11 @@
-package net.imprex.goolak.antixray;
+package net.akat.goolak.antixray;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import net.imprex.goolak.platform.TaskDispatcher;
+import net.akat.goolak.platform.TaskDispatcher;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;

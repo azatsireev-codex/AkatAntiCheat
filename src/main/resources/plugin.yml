@@ -1,8 +1,8 @@
 name: GOOLak
 version: ${project.version}
-main: net.imprex.goolak.GOOLakPlugin
+main: net.akat.goolak.GOOLakPlugin
 api-version: '1.16'
-authors: [Imprex]
+authors: [AkatSireev, 2FORWORD2]
 commands:
   goolak:
     description: GOOLak admin command

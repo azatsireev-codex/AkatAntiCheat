@@ -1,4 +1,4 @@
-package net.imprex.goolak.antixray;
+package net.akat.goolak.antixray;
 
 import java.util.EnumSet;
 import java.util.List;

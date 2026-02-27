@@ -1,4 +1,4 @@
-package net.imprex.goolak.antixray;
+package net.akat.goolak.antixray;
 
 record BlockPos(int x, int y, int z) {
 }

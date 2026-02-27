@@ -1,4 +1,4 @@
-package net.imprex.goolak.antixray;
+package net.akat.goolak.antixray;
 
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;

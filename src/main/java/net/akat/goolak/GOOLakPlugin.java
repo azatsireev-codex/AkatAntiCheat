@@ -1,11 +1,11 @@
-package net.imprex.goolak;
+package net.akat.goolak;
 
 import java.util.Objects;
-import net.imprex.goolak.antixray.AntiXRayConfig;
-import net.imprex.goolak.antixray.AntiXRayListener;
-import net.imprex.goolak.antixray.AntiXRayService;
-import net.imprex.goolak.command.GOOLakCommand;
-import net.imprex.goolak.platform.TaskDispatcher;
+import net.akat.goolak.antixray.AntiXRayConfig;
+import net.akat.goolak.antixray.AntiXRayListener;
+import net.akat.goolak.antixray.AntiXRayService;
+import net.akat.goolak.command.GOOLakCommand;
+import net.akat.goolak.platform.TaskDispatcher;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 

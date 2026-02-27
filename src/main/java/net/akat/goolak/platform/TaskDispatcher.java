@@ -1,4 +1,4 @@
-package net.imprex.goolak.platform;
+package net.akat.goolak.platform;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

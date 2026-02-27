@@ -1,6 +1,6 @@
-package net.imprex.goolak.command;
+package net.akat.goolak.command;
 
-import net.imprex.goolak.GOOLakPlugin;
+import net.akat.goolak.GOOLakPlugin;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
