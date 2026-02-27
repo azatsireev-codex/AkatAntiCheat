@@ -1,13 +1,13 @@
-name: AkatAntiCheat
+name: GOOLak
 version: ${project.version}
-main: net.imprex.lightxray.LightXRayPlugin
+main: net.imprex.goolak.GOOLakPlugin
 api-version: '1.16'
 authors: [Imprex]
 commands:
-  akatanticheat:
-    description: AkatAntiCheat admin command
+  goolak:
+    description: GOOLak admin command
     usage: /<command> reload
-    permission: akatanticheat.admin
+    permission: goolak.admin
 permissions:
-  akatanticheat.admin:
+  goolak.admin:
     default: op

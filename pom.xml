@@ -4,12 +4,12 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>net.imprex</groupId>
-  <artifactId>akatanticheat-plugin</artifactId>
+  <artifactId>goolak-plugin</artifactId>
   <version>1.0.0</version>
   <packaging>jar</packaging>
 
-  <name>AkatAntiCheat Plugin</name>
-  <description>AkatAntiCheat boundary-only anti-xray plugin.</description>
+  <name>GOOLak Plugin</name>
+  <description>GOOLak boundary-only anti-xray plugin.</description>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
