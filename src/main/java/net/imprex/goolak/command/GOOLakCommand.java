@@ -1,14 +1,15 @@
-package net.imprex.goolak;
+package net.imprex.goolak.command;
 
+import net.imprex.goolak.GOOLakPlugin;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
-final class GOOLakCommand implements CommandExecutor {
+public final class GOOLakCommand implements CommandExecutor {
 
   private final GOOLakPlugin plugin;
 
-  GOOLakCommand(GOOLakPlugin plugin) {
+  public GOOLakCommand(GOOLakPlugin plugin) {
     this.plugin = plugin;
   }
 
@@ -16,7 +17,7 @@ final class GOOLakCommand implements CommandExecutor {
   public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
     if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
       this.plugin.reloadPluginConfig();
-      sender.sendMessage("§aGOOLak config reloaded.");
+      sender.sendMessage("§aGOOLak AntiXRay config reloaded.");
       return true;
     }
 

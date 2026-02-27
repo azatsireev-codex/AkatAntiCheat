@@ -1,4 +1,4 @@
-package net.imprex.goolak;
+package net.imprex.goolak.antixray;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -6,7 +6,7 @@ import java.util.Set;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 
-final class GOOLakConfig {
+public final class AntiXRayConfig {
 
   private final boolean enabled;
   private final int scanIntervalTicks;
@@ -19,7 +19,7 @@ final class GOOLakConfig {
   private final Material replacementMaterial;
   private final Set<Material> hiddenMaterials;
 
-  private GOOLakConfig(boolean enabled, int scanIntervalTicks, int chunkRadius, int minY, int maxY,
+  private AntiXRayConfig(boolean enabled, int scanIntervalTicks, int chunkRadius, int minY, int maxY,
       double viewConeDegrees, int maxReplacementsPerScan, int maxRestoresPerScan,
       Material replacementMaterial, Set<Material> hiddenMaterials) {
     this.enabled = enabled;
@@ -34,7 +34,7 @@ final class GOOLakConfig {
     this.hiddenMaterials = hiddenMaterials;
   }
 
-  static GOOLakConfig from(FileConfiguration config) {
+  public static AntiXRayConfig from(FileConfiguration config) {
     boolean enabled = config.getBoolean("enabled", true);
     int scanIntervalTicks = Math.max(1, config.getInt("scanIntervalTicks", 20));
     int chunkRadius = Math.max(0, config.getInt("chunkRadius", 1));
@@ -67,47 +67,18 @@ final class GOOLakConfig {
       hiddenMaterials.add(Material.DEEPSLATE_DIAMOND_ORE);
     }
 
-    return new GOOLakConfig(enabled, scanIntervalTicks, chunkRadius, minY, maxY, viewConeDegrees,
+    return new AntiXRayConfig(enabled, scanIntervalTicks, chunkRadius, minY, maxY, viewConeDegrees,
         maxReplacementsPerScan, maxRestoresPerScan, replacement, hiddenMaterials);
   }
 
-  boolean enabled() {
-    return this.enabled;
-  }
-
-  int scanIntervalTicks() {
-    return this.scanIntervalTicks;
-  }
-
-  int chunkRadius() {
-    return this.chunkRadius;
-  }
-
-  int minY() {
-    return this.minY;
-  }
-
-  int maxY() {
-    return this.maxY;
-  }
-
-  double viewConeDegrees() {
-    return this.viewConeDegrees;
-  }
-
-  int maxReplacementsPerScan() {
-    return this.maxReplacementsPerScan;
-  }
-
-  int maxRestoresPerScan() {
-    return this.maxRestoresPerScan;
-  }
-
-  Material replacementMaterial() {
-    return this.replacementMaterial;
-  }
-
-  Set<Material> hiddenMaterials() {
-    return this.hiddenMaterials;
-  }
+  boolean enabled() { return this.enabled; }
+  int scanIntervalTicks() { return this.scanIntervalTicks; }
+  int chunkRadius() { return this.chunkRadius; }
+  int minY() { return this.minY; }
+  int maxY() { return this.maxY; }
+  double viewConeDegrees() { return this.viewConeDegrees; }
+  int maxReplacementsPerScan() { return this.maxReplacementsPerScan; }
+  int maxRestoresPerScan() { return this.maxRestoresPerScan; }
+  Material replacementMaterial() { return this.replacementMaterial; }
+  Set<Material> hiddenMaterials() { return this.hiddenMaterials; }
 }

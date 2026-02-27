@@ -1,40 +1,46 @@
 package net.imprex.goolak;
 
 import java.util.Objects;
+import net.imprex.goolak.antixray.AntiXRayConfig;
+import net.imprex.goolak.antixray.AntiXRayListener;
+import net.imprex.goolak.antixray.AntiXRayService;
+import net.imprex.goolak.command.GOOLakCommand;
+import net.imprex.goolak.platform.TaskDispatcher;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class GOOLakPlugin extends JavaPlugin {
 
-  private GOOLakService service;
+  private AntiXRayService antiXRayService;
 
   @Override
   public void onEnable() {
     this.saveDefaultConfig();
 
-    GOOLakConfig config = GOOLakConfig.from(this.getConfig());
-    this.service = new GOOLakService(this, config);
-    this.service.start();
+    TaskDispatcher taskDispatcher = new TaskDispatcher(this);
+    AntiXRayConfig config = AntiXRayConfig.from(this.getConfig());
+    this.antiXRayService = new AntiXRayService(taskDispatcher, config);
+    this.antiXRayService.start();
 
     PluginCommand command = Objects.requireNonNull(this.getCommand("goolak"), "Missing command goolak");
     command.setExecutor(new GOOLakCommand(this));
 
-    this.getServer().getPluginManager().registerEvents(new GOOLakListener(this.service), this);
+    this.getServer().getPluginManager().registerEvents(new AntiXRayListener(this.antiXRayService), this);
 
-    this.getLogger().info("GOOLak enabled. Boundary-only masking is active.");
+    this.getLogger().info("GOOLak enabled. AntiXRay module is active.");
   }
 
   @Override
   public void onDisable() {
-    if (this.service != null) {
-      this.service.stop();
-      this.service = null;
+    if (this.antiXRayService != null) {
+      this.antiXRayService.stop();
+      this.antiXRayService = null;
     }
   }
 
-  void reloadPluginConfig() {
+  public void reloadPluginConfig() {
     this.reloadConfig();
-    GOOLakConfig config = GOOLakConfig.from(this.getConfig());
-    this.service.updateConfig(config);
+    AntiXRayConfig config = AntiXRayConfig.from(this.getConfig());
+    this.antiXRayService.updateConfig(config);
   }
 }

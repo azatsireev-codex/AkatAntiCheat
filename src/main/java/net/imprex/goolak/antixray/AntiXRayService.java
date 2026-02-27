@@ -1,10 +1,11 @@
-package net.imprex.goolak;
+package net.imprex.goolak.antixray;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.imprex.goolak.platform.TaskDispatcher;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -15,33 +16,31 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
-final class GOOLakService {
+public final class AntiXRayService {
 
-  private final GOOLakPlugin plugin;
+  private final TaskDispatcher taskDispatcher;
   private final Map<UUID, Set<BlockPos>> activeMasks = new HashMap<>();
 
-  private GOOLakConfig config;
-  private int taskId = -1;
+  private AntiXRayConfig config;
+  private Object scanTaskHandle;
 
-  GOOLakService(GOOLakPlugin plugin, GOOLakConfig config) {
-    this.plugin = plugin;
+  public AntiXRayService(TaskDispatcher taskDispatcher, AntiXRayConfig config) {
+    this.taskDispatcher = taskDispatcher;
     this.config = config;
   }
 
-  void updateConfig(GOOLakConfig config) {
+  public void updateConfig(AntiXRayConfig config) {
     this.config = config;
     this.restartTask();
   }
 
-  void start() {
+  public void start() {
     this.restartTask();
   }
 
-  void stop() {
-    if (this.taskId != -1) {
-      Bukkit.getScheduler().cancelTask(this.taskId);
-      this.taskId = -1;
-    }
+  public void stop() {
+    this.taskDispatcher.cancelTask(this.scanTaskHandle);
+    this.scanTaskHandle = null;
 
     for (Player player : Bukkit.getOnlinePlayers()) {
       this.clearPlayer(player);
@@ -50,7 +49,11 @@ final class GOOLakService {
     this.activeMasks.clear();
   }
 
-  void clearPlayer(Player player) {
+  public void clearPlayer(Player player) {
+    this.taskDispatcher.executePlayerTask(player, () -> this.clearPlayerInternal(player));
+  }
+
+  private void clearPlayerInternal(Player player) {
     Set<BlockPos> oldMask = this.activeMasks.remove(player.getUniqueId());
     if (oldMask == null || oldMask.isEmpty()) {
       return;
@@ -62,17 +65,14 @@ final class GOOLakService {
   }
 
   private void restartTask() {
-    if (this.taskId != -1) {
-      Bukkit.getScheduler().cancelTask(this.taskId);
-      this.taskId = -1;
-    }
+    this.taskDispatcher.cancelTask(this.scanTaskHandle);
+    this.scanTaskHandle = null;
 
     if (!this.config.enabled()) {
       return;
     }
 
-    this.taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this.plugin, this::scanPlayers, 20L,
-        this.config.scanIntervalTicks());
+    this.scanTaskHandle = this.taskDispatcher.runRepeatingTask(this::scanPlayers, 20L, this.config.scanIntervalTicks());
   }
 
   private void scanPlayers() {
@@ -80,7 +80,7 @@ final class GOOLakService {
       if (!player.isOnline() || player.isDead()) {
         continue;
       }
-      this.scanPlayer(player);
+      this.taskDispatcher.executePlayerTask(player, () -> this.scanPlayer(player));
     }
   }
 
@@ -123,7 +123,6 @@ final class GOOLakService {
           this.restoreBlock(player, oldPos);
           restoresLeft--;
         } else {
-          // keep masked until a future pass restores it
           newMask.add(oldPos);
         }
       }
