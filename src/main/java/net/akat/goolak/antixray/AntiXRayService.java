@@ -107,7 +107,7 @@ public final class AntiXRayService {
         }
 
         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-        replacementsLeft -= this.maskChunkBorder(player, chunk, minY, maxY, newMask, replacementsLeft);
+        replacementsLeft -= this.maskChunk(player, chunk, minY, maxY, newMask, replacementsLeft);
       }
     }
 
@@ -131,18 +131,15 @@ public final class AntiXRayService {
     this.activeMasks.put(player.getUniqueId(), newMask);
   }
 
-  private int maskChunkBorder(Player player, Chunk chunk, int minY, int maxY, Set<BlockPos> targetMask, int budget) {
+  private int maskChunk(Player player, Chunk chunk, int minY, int maxY, Set<BlockPos> targetMask, int budget) {
     int replaced = 0;
     int baseX = chunk.getX() << 4;
     int baseZ = chunk.getZ() << 4;
 
     for (int y = minY; y <= maxY && replaced < budget; y++) {
-      for (int local = 0; local < 16 && replaced < budget; local++) {
-        replaced += this.tryMaskBorderBlock(player, baseX + local, y, baseZ, targetMask, budget - replaced);
-        replaced += this.tryMaskBorderBlock(player, baseX + local, y, baseZ + 15, targetMask, budget - replaced);
-        if (local > 0 && local < 15) {
-          replaced += this.tryMaskBorderBlock(player, baseX, y, baseZ + local, targetMask, budget - replaced);
-          replaced += this.tryMaskBorderBlock(player, baseX + 15, y, baseZ + local, targetMask, budget - replaced);
+      for (int localZ = 0; localZ < 16 && replaced < budget; localZ++) {
+        for (int localX = 0; localX < 16 && replaced < budget; localX++) {
+          replaced += this.tryMaskBlock(player, baseX + localX, y, baseZ + localZ, targetMask, budget - replaced);
         }
       }
     }
@@ -150,7 +147,7 @@ public final class AntiXRayService {
     return replaced;
   }
 
-  private int tryMaskBorderBlock(Player player, int x, int y, int z, Set<BlockPos> targetMask, int budget) {
+  private int tryMaskBlock(Player player, int x, int y, int z, Set<BlockPos> targetMask, int budget) {
     if (budget <= 0) {
       return 0;
     }
