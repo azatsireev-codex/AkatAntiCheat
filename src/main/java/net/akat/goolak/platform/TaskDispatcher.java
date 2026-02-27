@@ -58,11 +58,58 @@ public final class TaskDispatcher {
 
     try {
       Object scheduler = player.getClass().getMethod("getScheduler").invoke(player);
+      if (tryInvokePlayerRun(scheduler, runnable)) {
+        return;
+      }
+      if (tryInvokePlayerExecute(scheduler, runnable)) {
+        return;
+      }
+      throw new NoSuchMethodException("No compatible Folia player scheduler method was found");
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
+      throw new IllegalStateException("Failed to schedule Folia player task", exception);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private boolean tryInvokePlayerRun(Object scheduler, Runnable runnable)
+      throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    try {
       Method run = scheduler.getClass().getMethod("run", org.bukkit.plugin.Plugin.class, Consumer.class,
           Runnable.class, long.class);
       run.invoke(scheduler, this.plugin, (Consumer<Object>) task -> runnable.run(), null, 0L);
-    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
-      throw new IllegalStateException("Failed to schedule Folia player task", exception);
+      return true;
+    } catch (NoSuchMethodException ignored) {
+      // Folia API variant without delay argument.
+    }
+
+    try {
+      Method run = scheduler.getClass().getMethod("run", org.bukkit.plugin.Plugin.class, Consumer.class,
+          Runnable.class);
+      run.invoke(scheduler, this.plugin, (Consumer<Object>) task -> runnable.run(), null);
+      return true;
+    } catch (NoSuchMethodException ignored) {
+      return false;
+    }
+  }
+
+  private boolean tryInvokePlayerExecute(Object scheduler, Runnable runnable)
+      throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    try {
+      Method execute = scheduler.getClass().getMethod("execute", org.bukkit.plugin.Plugin.class, Runnable.class,
+          Runnable.class, long.class);
+      execute.invoke(scheduler, this.plugin, runnable, null, 0L);
+      return true;
+    } catch (NoSuchMethodException ignored) {
+      // Fall through to check other signatures.
+    }
+
+    try {
+      Method execute = scheduler.getClass().getMethod("execute", org.bukkit.plugin.Plugin.class, Runnable.class,
+          Runnable.class);
+      execute.invoke(scheduler, this.plugin, runnable, null);
+      return true;
+    } catch (NoSuchMethodException ignored) {
+      return false;
     }
   }
 
