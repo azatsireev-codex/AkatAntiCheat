@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.akat.goolak.platform.BlockChangeSender;
 import net.akat.goolak.platform.TaskDispatcher;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
@@ -19,13 +20,15 @@ import org.bukkit.util.Vector;
 public final class AntiXRayService {
 
   private final TaskDispatcher taskDispatcher;
+  private final BlockChangeSender blockChangeSender;
   private final Map<UUID, Set<BlockPos>> activeMasks = new HashMap<>();
 
   private AntiXRayConfig config;
   private Object scanTaskHandle;
 
-  public AntiXRayService(TaskDispatcher taskDispatcher, AntiXRayConfig config) {
+  public AntiXRayService(TaskDispatcher taskDispatcher, BlockChangeSender blockChangeSender, AntiXRayConfig config) {
     this.taskDispatcher = taskDispatcher;
+    this.blockChangeSender = blockChangeSender;
     this.config = config;
   }
 
@@ -168,7 +171,8 @@ public final class AntiXRayService {
     }
 
     BlockPos pos = new BlockPos(x, y, z);
-    player.sendBlockChange(new Location(world, x, y, z), this.config.replacementMaterial().createBlockData());
+    this.blockChangeSender.sendBlockChange(player, new Location(world, x, y, z),
+        this.config.replacementMaterial().createBlockData());
     targetMask.add(pos);
     return 1;
   }
@@ -176,7 +180,7 @@ public final class AntiXRayService {
   private void restoreBlock(Player player, BlockPos pos) {
     World world = player.getWorld();
     BlockData blockData = world.getBlockAt(pos.x(), pos.y(), pos.z()).getBlockData();
-    player.sendBlockChange(new Location(world, pos.x(), pos.y(), pos.z()), blockData);
+    this.blockChangeSender.sendBlockChange(player, new Location(world, pos.x(), pos.y(), pos.z()), blockData);
   }
 
   static boolean isEnclosed(Block block) {

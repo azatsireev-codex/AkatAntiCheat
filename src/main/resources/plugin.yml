@@ -4,6 +4,7 @@ main: net.akat.goolak.GOOLakPlugin
 api-version: '1.21'
 folia-supported: true
 authors: [AkatSireev, 2FORWORD2]
+softdepend: [packetevents]
 commands:
   goolak:
     description: GOOLak admin command
