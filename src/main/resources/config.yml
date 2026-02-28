@@ -4,8 +4,8 @@ chunkRadius: 1
 minY: -64
 maxY: 64
 viewConeDegrees: 100
-maxReplacementsPerScan: 800
-maxRestoresPerScan: 400
+maxReplacementsPerScan: 0
+maxRestoresPerScan: 0
 replacementMaterial: STONE
 hiddenMaterials:
   - DIAMOND_ORE

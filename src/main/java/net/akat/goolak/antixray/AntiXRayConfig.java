@@ -4,6 +4,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.configuration.file.FileConfiguration;
 
 public final class AntiXRayConfig {
@@ -17,6 +18,7 @@ public final class AntiXRayConfig {
   private final int maxReplacementsPerScan;
   private final int maxRestoresPerScan;
   private final Material replacementMaterial;
+  private final BlockData replacementBlockData;
   private final Set<Material> hiddenMaterials;
 
   private AntiXRayConfig(boolean enabled, int scanIntervalTicks, int chunkRadius, int minY, int maxY,
@@ -31,6 +33,7 @@ public final class AntiXRayConfig {
     this.maxReplacementsPerScan = maxReplacementsPerScan;
     this.maxRestoresPerScan = maxRestoresPerScan;
     this.replacementMaterial = replacementMaterial;
+    this.replacementBlockData = replacementMaterial.createBlockData();
     this.hiddenMaterials = hiddenMaterials;
   }
 
@@ -45,8 +48,8 @@ public final class AntiXRayConfig {
     int maxY = Math.max(configuredMinY, configuredMaxY);
 
     double viewConeDegrees = Math.min(180d, Math.max(1d, config.getDouble("viewConeDegrees", 100d)));
-    int maxReplacementsPerScan = Math.max(1, config.getInt("maxReplacementsPerScan", 800));
-    int maxRestoresPerScan = Math.max(1, config.getInt("maxRestoresPerScan", 400));
+    int maxReplacementsPerScan = Math.max(0, config.getInt("maxReplacementsPerScan", 0));
+    int maxRestoresPerScan = Math.max(0, config.getInt("maxRestoresPerScan", 0));
 
     Material replacement = Material.matchMaterial(config.getString("replacementMaterial", "STONE"));
     if (replacement == null || !replacement.isBlock()) {
@@ -80,5 +83,6 @@ public final class AntiXRayConfig {
   int maxReplacementsPerScan() { return this.maxReplacementsPerScan; }
   int maxRestoresPerScan() { return this.maxRestoresPerScan; }
   Material replacementMaterial() { return this.replacementMaterial; }
+  BlockData replacementBlockData() { return this.replacementBlockData; }
   Set<Material> hiddenMaterials() { return this.hiddenMaterials; }
 }

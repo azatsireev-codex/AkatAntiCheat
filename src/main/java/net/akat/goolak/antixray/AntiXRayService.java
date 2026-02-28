@@ -1,5 +1,7 @@
 package net.akat.goolak.antixray;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -99,12 +101,12 @@ public final class AntiXRayService {
     int centerChunkZ = location.getBlockZ() >> 4;
 
     Set<BlockPos> newMask = new HashSet<>();
-    int replacementsLeft = this.config.maxReplacementsPerScan();
+    int configuredReplacements = this.config.maxReplacementsPerScan();
+    int replacementsLeft = configuredReplacements > 0 ? configuredReplacements : Integer.MAX_VALUE;
+    int radius = resolveChunkRadius(player);
 
-    for (int chunkZ = centerChunkZ - this.config.chunkRadius(); chunkZ <= centerChunkZ
-        + this.config.chunkRadius() && replacementsLeft > 0; chunkZ++) {
-      for (int chunkX = centerChunkX - this.config.chunkRadius(); chunkX <= centerChunkX
-          + this.config.chunkRadius() && replacementsLeft > 0; chunkX++) {
+    for (int chunkZ = centerChunkZ - radius; chunkZ <= centerChunkZ + radius && replacementsLeft > 0; chunkZ++) {
+      for (int chunkX = centerChunkX - radius; chunkX <= centerChunkX + radius && replacementsLeft > 0; chunkX++) {
         if (!world.isChunkLoaded(chunkX, chunkZ)) {
           continue;
         }
@@ -116,7 +118,8 @@ public final class AntiXRayService {
 
     Set<BlockPos> oldMask = this.activeMasks.get(player.getUniqueId());
     if (oldMask != null && !oldMask.isEmpty()) {
-      int restoresLeft = this.config.maxRestoresPerScan();
+      int configuredRestores = this.config.maxRestoresPerScan();
+      int restoresLeft = configuredRestores > 0 ? configuredRestores : Integer.MAX_VALUE;
       for (BlockPos oldPos : oldMask) {
         if (newMask.contains(oldPos)) {
           continue;
@@ -172,7 +175,7 @@ public final class AntiXRayService {
 
     BlockPos pos = new BlockPos(x, y, z);
     this.blockChangeSender.sendBlockChange(player, new Location(world, x, y, z),
-        this.config.replacementMaterial().createBlockData());
+        this.config.replacementBlockData());
     targetMask.add(pos);
     return 1;
   }
@@ -181,6 +184,36 @@ public final class AntiXRayService {
     World world = player.getWorld();
     BlockData blockData = world.getBlockAt(pos.x(), pos.y(), pos.z()).getBlockData();
     this.blockChangeSender.sendBlockChange(player, new Location(world, pos.x(), pos.y(), pos.z()), blockData);
+  }
+
+
+
+  private int resolveChunkRadius(Player player) {
+    int radius = Math.max(0, this.config.chunkRadius());
+
+    int viewDistance = getClientViewDistance(player);
+    if (viewDistance <= 0) {
+      viewDistance = Bukkit.getViewDistance();
+    }
+
+    if (viewDistance > 0) {
+      radius = Math.max(radius, viewDistance);
+    }
+
+    return radius;
+  }
+
+  private static int getClientViewDistance(Player player) {
+    try {
+      Method method = player.getClass().getMethod("getClientViewDistance");
+      Object value = method.invoke(player);
+      if (value instanceof Integer distance) {
+        return distance;
+      }
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+      return -1;
+    }
+    return -1;
   }
 
   static boolean isEnclosed(Block block) {
