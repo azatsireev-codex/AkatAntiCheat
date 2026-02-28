@@ -1,58 +1,30 @@
-package net.imprex.orebfuscator.obfuscation;
+package net.akat.goolak;
 
-import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import net.akat.goolak.antixray.AntiXRayConfig;
+import net.akat.goolak.antixray.BlockPos;
+import org.bukkit.Chunk;
+import org.bukkit.entity.Player;
 
-import org.bukkit.block.Block;
+public final class ObfuscationSystem {
 
-import dev.imprex.orebfuscator.config.OrebfuscatorConfig;
-import net.imprex.orebfuscator.Orebfuscator;
-import net.imprex.orebfuscator.cache.ObfuscationCache;
-import net.imprex.orebfuscator.iterop.BukkitChunkPacketAccessor;
-
-public class ObfuscationSystem {
-
-  private final Orebfuscator orebfuscator;
-  private final OrebfuscatorConfig config;
-  private final ObfuscationCache cache;
-
-  private final ObfuscationProcessor processor;
   private final ObfuscationTaskDispatcher dispatcher;
-  private ObfuscationListener listener;
+  private final ObfuscationTaskWorker worker;
 
-  private final DeobfuscationWorker deobfuscationWorker;
-
-  public ObfuscationSystem(Orebfuscator orebfuscator) {
-    this.orebfuscator = orebfuscator;
-    this.config = orebfuscator.getOrebfuscatorConfig();
-    this.cache = orebfuscator.getObfuscationCache();
-
-    this.processor = new ObfuscationProcessor(orebfuscator);
-    this.dispatcher = new ObfuscationTaskDispatcher(orebfuscator, this.processor);
-
-    this.deobfuscationWorker = new DeobfuscationWorker(orebfuscator);
-    DeobfuscationListener.createAndRegister(orebfuscator, this.deobfuscationWorker);
+  public ObfuscationSystem() {
+    this.dispatcher = new ObfuscationTaskDispatcher();
+    this.worker = new ObfuscationTaskWorker(new ObfuscationProcessor());
   }
 
-  public void registerChunkListener() {
-    this.listener = new ObfuscationListener(orebfuscator);
-  }
-
-  public CompletableFuture<ObfuscationResult> obfuscate(BukkitChunkPacketAccessor packet) {
-    ObfuscationRequest request = ObfuscationRequest.fromChunk(packet, this.config, this.dispatcher);
-    if (this.config.cache().enabled()) {
-      return this.cache.get(request);
-    } else {
-      return request.submitForObfuscation();
-    }
-  }
-
-  public void deobfuscate(Collection<? extends Block> blocks) {
-    this.deobfuscationWorker.deobfuscate(blocks, false);
+  public CompletableFuture<ObfuscationResult> obfuscate(Player player, Chunk chunk, AntiXRayConfig config,
+      Set<BlockPos> alreadyMasked) {
+    ObfuscationRequest request = new ObfuscationRequest(player, chunk, config, alreadyMasked);
+    ObfuscationTask task = new ObfuscationTask(request);
+    return this.dispatcher.dispatch(task, this.worker);
   }
 
   public void shutdown() {
-    this.listener.unregister();
     this.dispatcher.shutdown();
   }
 }
