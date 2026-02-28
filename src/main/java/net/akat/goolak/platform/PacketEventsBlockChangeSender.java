@@ -47,7 +47,7 @@ public final class PacketEventsBlockChangeSender implements BlockChangeSender {
       Object api = invokeMethod(getApiMethod, null);
       Method getPlayerManagerMethod = api.getClass().getMethod("getPlayerManager");
       Object playerManager = invokeMethod(getPlayerManagerMethod, api);
-      Method sendPacketMethod = playerManager.getClass().getMethod("sendPacket", Player.class, Object.class);
+      Method sendPacketMethod = findSendPacketMethod(playerManager.getClass());
 
       Class<?> blockChangePacketClass =
           Class.forName("com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockChange");
@@ -88,6 +88,31 @@ public final class PacketEventsBlockChangeSender implements BlockChangeSender {
           "PacketEvents send failed for " + player.getName() + ". Falling back to Bukkit sendBlockChange.", exception);
       player.sendBlockChange(location, blockData);
     }
+  }
+
+
+
+  private static Method findSendPacketMethod(Class<?> playerManagerClass) throws NoSuchMethodException {
+    for (Method method : playerManagerClass.getMethods()) {
+      if (!method.getName().equals("sendPacket") || method.getParameterCount() != 2) {
+        continue;
+      }
+
+      Class<?> firstParameter = method.getParameterTypes()[0];
+      if (firstParameter.isAssignableFrom(Player.class) || Player.class.isAssignableFrom(firstParameter)
+          || firstParameter == Object.class) {
+        return method;
+      }
+    }
+
+    for (Method method : playerManagerClass.getDeclaredMethods()) {
+      if (!method.getName().equals("sendPacket") || method.getParameterCount() != 2) {
+        continue;
+      }
+      return method;
+    }
+
+    throw new NoSuchMethodException("No compatible sendPacket method found on " + playerManagerClass.getName());
   }
 
   private static Object invokeMethod(Method method, Object instance, Object... args)
