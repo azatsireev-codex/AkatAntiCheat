@@ -1,161 +1,71 @@
-package net.imprex.orebfuscator.obfuscation;
+package net.akat.goolak;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
+import net.akat.goolak.antixray.BlockPos;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 
-import dev.imprex.orebfuscator.chunk.Chunk;
-import dev.imprex.orebfuscator.chunk.ChunkFactory;
-import dev.imprex.orebfuscator.chunk.ChunkSection;
-import dev.imprex.orebfuscator.config.OrebfuscatorConfig;
-import dev.imprex.orebfuscator.config.ProximityHeightCondition;
-import dev.imprex.orebfuscator.config.api.BlockFlags;
-import dev.imprex.orebfuscator.config.api.ObfuscationConfig;
-import dev.imprex.orebfuscator.config.api.ProximityConfig;
-import dev.imprex.orebfuscator.config.api.WorldConfigBundle;
-import dev.imprex.orebfuscator.interop.WorldAccessor;
-import dev.imprex.orebfuscator.util.BlockPos;
-import net.imprex.orebfuscator.Orebfuscator;
-import net.imprex.orebfuscator.OrebfuscatorNms;
-import net.imprex.orebfuscator.iterop.BukkitChunkPacketAccessor;
+public final class ObfuscationProcessor {
 
-public class ObfuscationProcessor {
+  public ObfuscationResult process(ObfuscationTask task) {
+    World world = task.chunk().getWorld();
+    int worldMinY = world.getMinHeight();
+    int worldMaxY = world.getMaxHeight() - 1;
+    int minY = Math.max(worldMinY, task.config().minY());
+    int maxY = Math.min(worldMaxY, task.config().maxY());
 
-  private final OrebfuscatorConfig config;
-  private final ChunkFactory chunkFactory;
+    int baseX = task.chunk().getX() << 4;
+    int baseZ = task.chunk().getZ() << 4;
+    int budget = task.config().maxReplacementsPerScan();
+    BlockData replacement = task.config().replacementBlockData();
 
-  public ObfuscationProcessor(Orebfuscator orebfuscator) {
-    this.config = orebfuscator.getOrebfuscatorConfig();
-    this.chunkFactory = orebfuscator.getChunkFactory();
-  }
+    Map<BlockPos, BlockData> replacements = new HashMap<>();
 
-  public void process(ObfuscationTask task) {
-    BukkitChunkPacketAccessor packet = task.getPacket();
-
-    WorldAccessor worldAccessor = packet.worldAccessor;
-
-    WorldConfigBundle bundle = this.config.world(worldAccessor);
-    BlockFlags blockFlags = bundle.blockFlags();
-    ObfuscationConfig obfuscationConfig = bundle.obfuscation();
-    ProximityConfig proximityConfig = bundle.proximity();
-
-    Set<BlockPos> blockEntities = new HashSet<>();
-    List<BlockPos> proximityBlocks = new ArrayList<>();
-
-    int baseX = packet.chunkX() << 4;
-    int baseZ = packet.chunkZ() << 4;
-
-    int layerY = Integer.MIN_VALUE;
-    int layerYBlockState = -1;
-
-    try (Chunk chunk = this.chunkFactory.fromPacket(packet)) {
-      for (int sectionIndex = Math.max(0, bundle.minSectionIndex()); sectionIndex <= Math
-          .min(chunk.getSectionCount() - 1, bundle.maxSectionIndex()); sectionIndex++) {
-        ChunkSection chunkSection = chunk.getSection(sectionIndex);
-        if (chunkSection == null || chunkSection.isEmpty()) {
-          continue;
-        }
-
-        final int baseY = worldAccessor.getMinBuildHeight() + (sectionIndex << 4);
-        for (int index = 0; index < 4096; index++) {
-          int y = baseY + (index >> 8 & 15);
-          if (!bundle.shouldObfuscate(y)) {
+    for (int y = minY; y <= maxY && budget > 0; y++) {
+      for (int localZ = 0; localZ < 16 && budget > 0; localZ++) {
+        for (int localX = 0; localX < 16 && budget > 0; localX++) {
+          int x = baseX + localX;
+          int z = baseZ + localZ;
+          Block block = world.getBlockAt(x, y, z);
+          Material material = block.getType();
+          if (!task.config().hiddenMaterials().contains(material)) {
             continue;
           }
 
-          int blockState = chunkSection.getBlockState(index);
-
-          int obfuscateBits = blockFlags.flags(blockState, y);
-          if (BlockFlags.isEmpty(obfuscateBits)) {
+          BlockPos pos = new BlockPos(x, y, z);
+          if (task.alreadyMasked().contains(pos)) {
             continue;
           }
 
-          int x = baseX + (index & 15);
-          int z = baseZ + (index >> 4 & 15);
-
-          boolean isObfuscateBitSet = BlockFlags.isObfuscateBitSet(obfuscateBits);
-          boolean obfuscated = false;
-
-          // should current block be obfuscated
-          if (isObfuscateBitSet && obfuscationConfig.shouldObfuscate(y) && shouldObfuscate(task, chunk, x, y, z)) {
-            if (obfuscationConfig.layerObfuscation()) {
-              if (layerY != y) {
-                layerY = y;
-                layerYBlockState = bundle.nextRandomObfuscationBlock(y);
-              }
-              blockState = layerYBlockState;
-            } else {
-              blockState = bundle.nextRandomObfuscationBlock(y);
-            }
-            obfuscated = true;
+          if (!this.shouldObfuscate(world, x, y, z, minY, maxY)) {
+            continue;
           }
 
-          // should current block be proximity hidden
-          if (!obfuscated && BlockFlags.isProximityBitSet(obfuscateBits) && proximityConfig.shouldObfuscate(y)) {
-            proximityBlocks.add(new BlockPos(x, y, z));
-            if (BlockFlags.isUseBlockBelowBitSet(obfuscateBits)) {
-              boolean allowNonOcclude = !isObfuscateBitSet || !ProximityHeightCondition.isPresent(obfuscateBits);
-              blockState = getBlockStateBelow(bundle, chunk, x, y, z, allowNonOcclude);
-            } else {
-              blockState = bundle.nextRandomProximityBlock(y);
-            }
-            obfuscated = true;
-          }
-
-          // update block state if needed
-          if (obfuscated) {
-            chunkSection.setBlockState(index, blockState);
-            if (BlockFlags.isBlockEntityBitSet(obfuscateBits)) {
-              blockEntities.add(new BlockPos(x, y, z));
-            }
-          }
-        }
-      }
-
-      task.complete(chunk.finalizeOutput(), blockEntities, proximityBlocks);
-    } catch (Exception e) {
-      task.completeExceptionally(e);
-    }
-  }
-
-  // returns first block below given position that wouldn't be obfuscated in any
-  // way at given position
-  private int getBlockStateBelow(WorldConfigBundle bundle, Chunk chunk, int x, int y, int z, boolean allowNonOcclude) {
-    BlockFlags blockFlags = bundle.blockFlags();
-
-    for (int targetY = y - 1; targetY > chunk.world().getMinBuildHeight(); targetY--) {
-      int blockData = chunk.getBlockState(x, targetY, z);
-      if (blockData != -1 && (allowNonOcclude || OrebfuscatorNms.isOccluding(blockData))) {
-        int mask = blockFlags.flags(blockData, y);
-        if (BlockFlags.isEmpty(mask) || BlockFlags.isAllowForUseBlockBelowBitSet(mask)) {
-          return blockData;
+          replacements.put(pos, replacement);
+          budget--;
         }
       }
     }
 
-    return bundle.nextRandomProximityBlock(y);
+    return new ObfuscationResult(replacements);
   }
 
-  private boolean shouldObfuscate(ObfuscationTask task, Chunk chunk, int x, int y, int z) {
-    return isAdjacentBlockOccluding(task, chunk, x, y + 1, z)
-        && isAdjacentBlockOccluding(task, chunk, x, y - 1, z)
-        && isAdjacentBlockOccluding(task, chunk, x + 1, y, z)
-        && isAdjacentBlockOccluding(task, chunk, x - 1, y, z)
-        && isAdjacentBlockOccluding(task, chunk, x, y, z + 1)
-        && isAdjacentBlockOccluding(task, chunk, x, y, z - 1);
+  private boolean shouldObfuscate(World world, int x, int y, int z, int minY, int maxY) {
+    return this.isOccluding(world, x, y + 1, z, minY, maxY)
+        && this.isOccluding(world, x, y - 1, z, minY, maxY)
+        && this.isOccluding(world, x + 1, y, z, minY, maxY)
+        && this.isOccluding(world, x - 1, y, z, minY, maxY)
+        && this.isOccluding(world, x, y, z + 1, minY, maxY)
+        && this.isOccluding(world, x, y, z - 1, minY, maxY);
   }
 
-  private boolean isAdjacentBlockOccluding(ObfuscationTask task, Chunk chunk, int x, int y, int z) {
-    if (y >= chunk.world().getMaxBuildHeight() || y < chunk.world().getMinBuildHeight()) {
+  private boolean isOccluding(World world, int x, int y, int z, int minY, int maxY) {
+    if (y < minY || y > maxY) {
       return false;
     }
-
-    int blockId = chunk.getBlockState(x, y, z);
-    if (blockId == -1) {
-      blockId = task.getBlockState(x, y, z);
-    }
-
-    return blockId >= 0 && OrebfuscatorNms.isOccluding(blockId);
+    return world.getBlockAt(x, y, z).getType().isOccluding();
   }
 }

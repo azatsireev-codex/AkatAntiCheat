@@ -78,16 +78,16 @@ public final class AntiXRayConfig {
         viewConeDegrees, maxReplacementsPerScan, maxRestoresPerScan, replacement, hiddenMaterials);
   }
 
-  boolean enabled() { return this.enabled; }
-  int scanIntervalTicks() { return this.scanIntervalTicks; }
-  int chunkRadius() { return this.chunkRadius; }
-  boolean useClientViewDistance() { return this.useClientViewDistance; }
-  int minY() { return this.minY; }
-  int maxY() { return this.maxY; }
-  double viewConeDegrees() { return this.viewConeDegrees; }
-  int maxReplacementsPerScan() { return this.maxReplacementsPerScan; }
-  int maxRestoresPerScan() { return this.maxRestoresPerScan; }
-  Material replacementMaterial() { return this.replacementMaterial; }
-  BlockData replacementBlockData() { return this.replacementBlockData; }
-  Set<Material> hiddenMaterials() { return this.hiddenMaterials; }
+  public boolean enabled() { return this.enabled; }
+  public int scanIntervalTicks() { return this.scanIntervalTicks; }
+  public int chunkRadius() { return this.chunkRadius; }
+  public boolean useClientViewDistance() { return this.useClientViewDistance; }
+  public int minY() { return this.minY; }
+  public int maxY() { return this.maxY; }
+  public double viewConeDegrees() { return this.viewConeDegrees; }
+  public int maxReplacementsPerScan() { return this.maxReplacementsPerScan; }
+  public int maxRestoresPerScan() { return this.maxRestoresPerScan; }
+  public Material replacementMaterial() { return this.replacementMaterial; }
+  public BlockData replacementBlockData() { return this.replacementBlockData; }
+  public Set<Material> hiddenMaterials() { return this.hiddenMaterials; }
 }

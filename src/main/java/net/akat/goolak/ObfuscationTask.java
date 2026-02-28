@@ -1,54 +1,26 @@
-package net.imprex.orebfuscator.obfuscation;
+package net.akat.goolak;
 
-import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import net.akat.goolak.antixray.AntiXRayConfig;
+import net.akat.goolak.antixray.BlockPos;
+import org.bukkit.Chunk;
+import org.bukkit.entity.Player;
 
-import org.bukkit.World;
+public record ObfuscationTask(ObfuscationRequest request) {
 
-import dev.imprex.orebfuscator.util.BlockPos;
-import dev.imprex.orebfuscator.util.ChunkCacheKey;
-import dev.imprex.orebfuscator.util.ChunkDirection;
-import net.imprex.orebfuscator.OrebfuscatorCompatibility;
-import net.imprex.orebfuscator.iterop.BukkitChunkPacketAccessor;
-import net.imprex.orebfuscator.nms.ReadOnlyChunk;
-
-public class ObfuscationTask {
-
-  public static CompletableFuture<ObfuscationTask> fromRequest(ObfuscationRequest request) {
-    World world = request.getPacket().worldAccessor.world;
-    ChunkCacheKey key = request.getCacheKey();
-
-    return OrebfuscatorCompatibility.getNeighboringChunks(world, key)
-        .thenApply(chunks -> new ObfuscationTask(request, chunks));
+  public Player player() {
+    return this.request.player();
   }
 
-  private final ObfuscationRequest request;
-  private final ReadOnlyChunk[] neighboringChunks;
-
-  private ObfuscationTask(ObfuscationRequest request, ReadOnlyChunk[] neighboringChunks) {
-    if (neighboringChunks == null || neighboringChunks.length != 4) {
-      throw new IllegalArgumentException("neighboringChunks missing or invalid length");
-    }
-
-    this.request = request;
-    this.neighboringChunks = neighboringChunks;
+  public Chunk chunk() {
+    return this.request.chunk();
   }
 
-  public BukkitChunkPacketAccessor getPacket() {
-    return this.request.getPacket();
+  public AntiXRayConfig config() {
+    return this.request.config();
   }
 
-  public void complete(byte[] data, Set<BlockPos> blockEntities, List<BlockPos> proximityBlocks) {
-    this.request.complete(this.request.createResult(data, blockEntities, proximityBlocks));
-  }
-
-  public void completeExceptionally(Throwable throwable) {
-    this.request.completeExceptionally(throwable);
-  }
-
-  public int getBlockState(int x, int y, int z) {
-    ChunkDirection direction = ChunkDirection.fromPosition(request.getCacheKey(), x, z);
-    return this.neighboringChunks[direction.ordinal()].getBlockState(x, y, z);
+  public Set<BlockPos> alreadyMasked() {
+    return this.request.alreadyMasked();
   }
 }

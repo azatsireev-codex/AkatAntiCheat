@@ -2,7 +2,6 @@ package net.akat.goolak;
 
 import java.util.Objects;
 import net.akat.goolak.antixray.AntiXRayConfig;
-import net.akat.goolak.antixray.AntiXRayListener;
 import net.akat.goolak.antixray.AntiXRayService;
 import net.akat.goolak.command.GOOLakCommand;
 import net.akat.goolak.platform.BlockChangeSender;
@@ -20,13 +19,16 @@ public final class GOOLakPlugin extends JavaPlugin {
 
     BlockChangeSender blockChangeSender = PacketEventsBlockChangeSender.create(this);
     AntiXRayConfig config = AntiXRayConfig.from(this.getConfig());
-    this.antiXRayService = new AntiXRayService(blockChangeSender, config);
+    ObfuscationSystem obfuscationSystem = new ObfuscationSystem();
+    this.antiXRayService = new AntiXRayService(blockChangeSender, config, obfuscationSystem);
     this.antiXRayService.start();
 
     PluginCommand command = Objects.requireNonNull(this.getCommand("goolak"), "Missing command goolak");
     command.setExecutor(new GOOLakCommand(this));
 
-    this.getServer().getPluginManager().registerEvents(new AntiXRayListener(this.antiXRayService), this);
+    this.getServer().getPluginManager().registerEvents(new ObfuscationListener(this.antiXRayService), this);
+    this.getServer().getPluginManager().registerEvents(
+        new DeobfuscationListener(new DeobfuscationWorker(this.antiXRayService)), this);
 
     this.getLogger().info("GOOLak enabled. AntiXRay module is active.");
   }

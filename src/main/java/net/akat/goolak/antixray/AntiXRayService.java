@@ -1,16 +1,17 @@
 package net.akat.goolak.antixray;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.UUID;
+import net.akat.goolak.ObfuscationResult;
+import net.akat.goolak.ObfuscationSystem;
 import net.akat.goolak.platform.BlockChangeSender;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
@@ -19,13 +20,15 @@ import org.bukkit.entity.Player;
 public final class AntiXRayService {
 
   private final BlockChangeSender blockChangeSender;
+  private final ObfuscationSystem obfuscationSystem;
   private final Map<UUID, Set<BlockPos>> activeMasks = new HashMap<>();
 
   private AntiXRayConfig config;
 
-  public AntiXRayService(BlockChangeSender blockChangeSender, AntiXRayConfig config) {
+  public AntiXRayService(BlockChangeSender blockChangeSender, AntiXRayConfig config, ObfuscationSystem obfuscationSystem) {
     this.blockChangeSender = blockChangeSender;
     this.config = config;
+    this.obfuscationSystem = obfuscationSystem;
   }
 
   public void updateConfig(AntiXRayConfig config) {
@@ -49,6 +52,7 @@ public final class AntiXRayService {
     }
 
     this.activeMasks.clear();
+    this.obfuscationSystem.shutdown();
   }
 
   public void clearPlayer(Player player) {
@@ -67,7 +71,16 @@ public final class AntiXRayService {
       return;
     }
 
-    this.maskChunk(player, chunk);
+    Set<BlockPos> playerMask = this.activeMasks.computeIfAbsent(player.getUniqueId(), key -> new java.util.HashSet<>());
+    this.obfuscationSystem.obfuscate(player, chunk, this.config, playerMask)
+        .thenAccept(result -> this.applyObfuscation(player, chunk.getWorld(), playerMask, result))
+        .exceptionally(throwable -> {
+          Throwable cause = throwable instanceof CompletionException && throwable.getCause() != null
+              ? throwable.getCause() : throwable;
+          Bukkit.getLogger().warning("[GOOLak] Failed to obfuscate chunk " + chunk.getX() + "," + chunk.getZ()
+              + " for player " + player.getName() + ": " + cause.getMessage());
+          return null;
+        });
   }
 
   public void handleChunkUnload(Player player, int chunkX, int chunkZ) {
@@ -76,12 +89,14 @@ public final class AntiXRayService {
       return;
     }
 
+    int restoresLeft = this.config.maxRestoresPerScan();
     Iterator<BlockPos> iterator = mask.iterator();
-    while (iterator.hasNext()) {
+    while (iterator.hasNext() && restoresLeft > 0) {
       BlockPos pos = iterator.next();
       if ((pos.x() >> 4) == chunkX && (pos.z() >> 4) == chunkZ) {
         this.restoreBlock(player, pos);
         iterator.remove();
+        restoresLeft--;
       }
     }
 
@@ -106,44 +121,17 @@ public final class AntiXRayService {
     }
   }
 
-  private void maskChunk(Player player, Chunk chunk) {
-    World world = chunk.getWorld();
-    int worldMinY = world.getMinHeight();
-    int worldMaxY = world.getMaxHeight() - 1;
-    int minY = Math.max(worldMinY, this.config.minY());
-    int maxY = Math.min(worldMaxY, this.config.maxY());
+  private void applyObfuscation(Player player, World world, Set<BlockPos> playerMask, ObfuscationResult result) {
+    if (result.isEmpty()) {
+      return;
+    }
 
-    int budget = this.config.maxReplacementsPerScan();
-    Set<BlockPos> playerMask = this.activeMasks.computeIfAbsent(player.getUniqueId(), key -> new HashSet<>());
-    int baseX = chunk.getX() << 4;
-    int baseZ = chunk.getZ() << 4;
-
-    for (int y = minY; y <= maxY && budget > 0; y++) {
-      for (int localZ = 0; localZ < 16 && budget > 0; localZ++) {
-        for (int localX = 0; localX < 16 && budget > 0; localX++) {
-          int x = baseX + localX;
-          int z = baseZ + localZ;
-          if (this.tryMaskBlock(player, world, x, y, z, playerMask)) {
-            budget--;
-          }
-        }
+    for (Map.Entry<BlockPos, BlockData> entry : result.replacements().entrySet()) {
+      BlockPos pos = entry.getKey();
+      if (playerMask.add(pos)) {
+        this.blockChangeSender.sendBlockChange(player, new Location(world, pos.x(), pos.y(), pos.z()), entry.getValue());
       }
     }
-  }
-
-  private boolean tryMaskBlock(Player player, World world, int x, int y, int z, Set<BlockPos> targetMask) {
-    Material material = world.getBlockAt(x, y, z).getType();
-    if (!this.config.hiddenMaterials().contains(material)) {
-      return false;
-    }
-
-    BlockPos pos = new BlockPos(x, y, z);
-    if (!targetMask.add(pos)) {
-      return false;
-    }
-
-    this.blockChangeSender.sendBlockChange(player, new Location(world, x, y, z), this.config.replacementBlockData());
-    return true;
   }
 
   private void restoreBlock(Player player, BlockPos pos) {
