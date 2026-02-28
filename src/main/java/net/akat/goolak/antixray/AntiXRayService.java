@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import net.akat.goolak.ObfuscationResult;
 import net.akat.goolak.ObfuscationSystem;
 import net.akat.goolak.platform.BlockChangeSender;
+import net.akat.goolak.platform.TaskDispatcher;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -25,13 +26,16 @@ public final class AntiXRayService {
   private final BlockChangeSender blockChangeSender;
   private final ObfuscationSystem obfuscationSystem;
   private final Map<UUID, Set<BlockPos>> activeMasks = new HashMap<>();
+  private final TaskDispatcher taskDispatcher;
 
   private AntiXRayConfig config;
 
-  public AntiXRayService(BlockChangeSender blockChangeSender, AntiXRayConfig config, ObfuscationSystem obfuscationSystem) {
+  public AntiXRayService(BlockChangeSender blockChangeSender, AntiXRayConfig config, ObfuscationSystem obfuscationSystem,
+      TaskDispatcher taskDispatcher) {
     this.blockChangeSender = blockChangeSender;
     this.config = config;
     this.obfuscationSystem = obfuscationSystem;
+    this.taskDispatcher = taskDispatcher;
   }
 
   public void updateConfig(AntiXRayConfig config) {
@@ -76,7 +80,8 @@ public final class AntiXRayService {
 
     Set<BlockPos> playerMask = this.activeMasks.computeIfAbsent(player.getUniqueId(), key -> new java.util.HashSet<>());
     this.obfuscationSystem.obfuscate(player, chunk, this.config, playerMask)
-        .thenAccept(result -> this.applyObfuscation(player, chunk.getWorld(), playerMask, result))
+        .thenAccept(result -> this.taskDispatcher.executePlayerTaskLater(player,
+            () -> this.applyObfuscation(player, chunk.getWorld(), playerMask, result), 1L))
         .exceptionally(throwable -> {
           Throwable cause = throwable instanceof CompletionException && throwable.getCause() != null
               ? throwable.getCause() : throwable;

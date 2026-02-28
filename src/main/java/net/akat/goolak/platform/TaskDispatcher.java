@@ -89,6 +89,32 @@ public final class TaskDispatcher {
     }
   }
 
+
+  public void executePlayerTaskLater(Player player, Runnable runnable, long delayTicks) {
+    if (delayTicks <= 0) {
+      this.executePlayerTask(player, runnable);
+      return;
+    }
+
+    if (!this.folia) {
+      Bukkit.getScheduler().runTaskLater(this.plugin, runnable, delayTicks);
+      return;
+    }
+
+    try {
+      Object scheduler = player.getClass().getMethod("getScheduler").invoke(player);
+      if (tryInvokePlayerRun(scheduler, runnable, delayTicks)) {
+        return;
+      }
+      if (tryInvokePlayerExecute(scheduler, runnable, delayTicks)) {
+        return;
+      }
+      throw new NoSuchMethodException("No compatible Folia player scheduler delayed method was found");
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException exception) {
+      throw new IllegalStateException("Failed to schedule delayed Folia player task", exception);
+    }
+  }
+
   @SuppressWarnings("unchecked")
   private boolean tryInvokePlayerRun(Object scheduler, Runnable runnable)
       throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
@@ -126,6 +152,34 @@ public final class TaskDispatcher {
       Method execute = scheduler.getClass().getMethod("execute", org.bukkit.plugin.Plugin.class, Runnable.class,
           Runnable.class);
       execute.invoke(scheduler, this.plugin, runnable, null);
+      return true;
+    } catch (NoSuchMethodException ignored) {
+      return false;
+    }
+  }
+
+
+  @SuppressWarnings("unchecked")
+  private boolean tryInvokePlayerRun(Object scheduler, Runnable runnable, long delayTicks)
+      throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    try {
+      Method run = scheduler.getClass().getMethod("run", org.bukkit.plugin.Plugin.class, Consumer.class,
+          Runnable.class, long.class);
+      run.invoke(scheduler, this.plugin, (Consumer<Object>) task -> runnable.run(), null, delayTicks);
+      return true;
+    } catch (NoSuchMethodException ignored) {
+      // Fall through to check other signatures.
+    }
+
+    return false;
+  }
+
+  private boolean tryInvokePlayerExecute(Object scheduler, Runnable runnable, long delayTicks)
+      throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    try {
+      Method execute = scheduler.getClass().getMethod("execute", org.bukkit.plugin.Plugin.class, Runnable.class,
+          Runnable.class, long.class);
+      execute.invoke(scheduler, this.plugin, runnable, null, delayTicks);
       return true;
     } catch (NoSuchMethodException ignored) {
       return false;

@@ -6,6 +6,7 @@ import net.akat.goolak.antixray.AntiXRayService;
 import net.akat.goolak.command.GOOLakCommand;
 import net.akat.goolak.platform.BlockChangeSender;
 import net.akat.goolak.platform.PacketEventsBlockChangeSender;
+import net.akat.goolak.platform.TaskDispatcher;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -20,7 +21,8 @@ public final class GOOLakPlugin extends JavaPlugin {
     BlockChangeSender blockChangeSender = PacketEventsBlockChangeSender.create(this);
     AntiXRayConfig config = AntiXRayConfig.from(this.getConfig());
     ObfuscationSystem obfuscationSystem = new ObfuscationSystem();
-    this.antiXRayService = new AntiXRayService(blockChangeSender, config, obfuscationSystem);
+    TaskDispatcher taskDispatcher = new TaskDispatcher(this);
+    this.antiXRayService = new AntiXRayService(blockChangeSender, config, obfuscationSystem, taskDispatcher);
     this.antiXRayService.start();
 
     PluginCommand command = Objects.requireNonNull(this.getCommand("goolak"), "Missing command goolak");
