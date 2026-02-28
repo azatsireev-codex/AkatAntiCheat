@@ -2,11 +2,11 @@ package net.akat.goolak.antixray;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.akat.goolak.platform.BlockChangeSender;
-import net.akat.goolak.platform.TaskDispatcher;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -18,32 +18,32 @@ import org.bukkit.entity.Player;
 
 public final class AntiXRayService {
 
-  private final TaskDispatcher taskDispatcher;
   private final BlockChangeSender blockChangeSender;
   private final Map<UUID, Set<BlockPos>> activeMasks = new HashMap<>();
 
   private AntiXRayConfig config;
-  private Object scanTaskHandle;
 
-  public AntiXRayService(TaskDispatcher taskDispatcher, BlockChangeSender blockChangeSender, AntiXRayConfig config) {
-    this.taskDispatcher = taskDispatcher;
+  public AntiXRayService(BlockChangeSender blockChangeSender, AntiXRayConfig config) {
     this.blockChangeSender = blockChangeSender;
     this.config = config;
   }
 
   public void updateConfig(AntiXRayConfig config) {
     this.config = config;
-    this.restartTask();
+
+    if (!this.config.enabled()) {
+      for (Player player : Bukkit.getOnlinePlayers()) {
+        this.clearPlayer(player);
+      }
+      this.activeMasks.clear();
+    }
   }
 
   public void start() {
-    this.restartTask();
+    // Chunk-level mode: no repeating full world scan.
   }
 
   public void stop() {
-    this.taskDispatcher.cancelTask(this.scanTaskHandle);
-    this.scanTaskHandle = null;
-
     for (Player player : Bukkit.getOnlinePlayers()) {
       this.clearPlayer(player);
     }
@@ -52,10 +52,6 @@ public final class AntiXRayService {
   }
 
   public void clearPlayer(Player player) {
-    this.taskDispatcher.executePlayerTask(player, () -> this.clearPlayerInternal(player));
-  }
-
-  private void clearPlayerInternal(Player player) {
     Set<BlockPos> oldMask = this.activeMasks.remove(player.getUniqueId());
     if (oldMask == null || oldMask.isEmpty()) {
       return;
@@ -66,106 +62,88 @@ public final class AntiXRayService {
     }
   }
 
-  private void restartTask() {
-    this.taskDispatcher.cancelTask(this.scanTaskHandle);
-    this.scanTaskHandle = null;
-
+  public void handleChunkLoad(Player player, Chunk chunk) {
     if (!this.config.enabled()) {
       return;
     }
 
-    this.scanTaskHandle = this.taskDispatcher.runRepeatingTask(this::scanPlayers, 20L, this.config.scanIntervalTicks());
+    this.maskChunk(player, chunk);
   }
 
-  private void scanPlayers() {
-    for (Player player : Bukkit.getOnlinePlayers()) {
-      if (!player.isOnline() || player.isDead()) {
-        continue;
+  public void handleChunkUnload(Player player, int chunkX, int chunkZ) {
+    Set<BlockPos> mask = this.activeMasks.get(player.getUniqueId());
+    if (mask == null || mask.isEmpty()) {
+      return;
+    }
+
+    Iterator<BlockPos> iterator = mask.iterator();
+    while (iterator.hasNext()) {
+      BlockPos pos = iterator.next();
+      if ((pos.x() >> 4) == chunkX && (pos.z() >> 4) == chunkZ) {
+        this.restoreBlock(player, pos);
+        iterator.remove();
       }
-      this.taskDispatcher.executePlayerTask(player, () -> this.scanPlayer(player));
+    }
+
+    if (mask.isEmpty()) {
+      this.activeMasks.remove(player.getUniqueId());
     }
   }
 
-  private void scanPlayer(Player player) {
-    World world = player.getWorld();
+  public void refreshBlockForAllPlayers(Block block) {
+    BlockPos pos = new BlockPos(block.getX(), block.getY(), block.getZ());
+    BlockData realData = block.getBlockData();
+
+    for (Player player : Bukkit.getOnlinePlayers()) {
+      Set<BlockPos> mask = this.activeMasks.get(player.getUniqueId());
+      if (mask == null || !mask.remove(pos)) {
+        continue;
+      }
+      this.blockChangeSender.sendBlockChange(player, block.getLocation(), realData);
+      if (mask.isEmpty()) {
+        this.activeMasks.remove(player.getUniqueId());
+      }
+    }
+  }
+
+  private void maskChunk(Player player, Chunk chunk) {
+    World world = chunk.getWorld();
     int worldMinY = world.getMinHeight();
     int worldMaxY = world.getMaxHeight() - 1;
     int minY = Math.max(worldMinY, this.config.minY());
     int maxY = Math.min(worldMaxY, this.config.maxY());
 
-    Location location = player.getLocation();
-    int centerChunkX = location.getBlockX() >> 4;
-    int centerChunkZ = location.getBlockZ() >> 4;
-
-    Set<BlockPos> newMask = new HashSet<>();
-    int replacementsLeft = this.config.maxReplacementsPerScan();
-    int radius = resolveChunkRadius(player);
-
-    for (int chunkZ = centerChunkZ - radius; chunkZ <= centerChunkZ + radius && replacementsLeft > 0; chunkZ++) {
-      for (int chunkX = centerChunkX - radius; chunkX <= centerChunkX + radius && replacementsLeft > 0; chunkX++) {
-        if (!world.isChunkLoaded(chunkX, chunkZ)) {
-          continue;
-        }
-
-        Chunk chunk = world.getChunkAt(chunkX, chunkZ);
-        replacementsLeft -= this.maskChunk(player, chunk, minY, maxY, newMask, replacementsLeft);
-      }
-    }
-
-    Set<BlockPos> oldMask = this.activeMasks.get(player.getUniqueId());
-    if (oldMask != null && !oldMask.isEmpty()) {
-      int restoresLeft = this.config.maxRestoresPerScan();
-      for (BlockPos oldPos : oldMask) {
-        if (newMask.contains(oldPos)) {
-          continue;
-        }
-
-        if (restoresLeft > 0) {
-          this.restoreBlock(player, oldPos);
-          restoresLeft--;
-        } else {
-          newMask.add(oldPos);
-        }
-      }
-    }
-
-    this.activeMasks.put(player.getUniqueId(), newMask);
-  }
-
-  private int maskChunk(Player player, Chunk chunk, int minY, int maxY, Set<BlockPos> targetMask, int budget) {
-    int replaced = 0;
+    int budget = this.config.maxReplacementsPerScan();
+    Set<BlockPos> playerMask = this.activeMasks.computeIfAbsent(player.getUniqueId(), key -> new HashSet<>());
     int baseX = chunk.getX() << 4;
     int baseZ = chunk.getZ() << 4;
 
-    for (int y = minY; y <= maxY && replaced < budget; y++) {
-      for (int localZ = 0; localZ < 16 && replaced < budget; localZ++) {
-        for (int localX = 0; localX < 16 && replaced < budget; localX++) {
-          replaced += this.tryMaskBlock(player, baseX + localX, y, baseZ + localZ, targetMask, budget - replaced);
+    for (int y = minY; y <= maxY && budget > 0; y++) {
+      for (int localZ = 0; localZ < 16 && budget > 0; localZ++) {
+        for (int localX = 0; localX < 16 && budget > 0; localX++) {
+          int x = baseX + localX;
+          int z = baseZ + localZ;
+          if (this.tryMaskBlock(player, world, x, y, z, playerMask)) {
+            budget--;
+          }
         }
       }
     }
-
-    return replaced;
   }
 
-  private int tryMaskBlock(Player player, int x, int y, int z, Set<BlockPos> targetMask, int budget) {
-    if (budget <= 0) {
-      return 0;
-    }
-
-    World world = player.getWorld();
-    Block block = world.getBlockAt(x, y, z);
-    Material material = block.getType();
+  private boolean tryMaskBlock(Player player, World world, int x, int y, int z, Set<BlockPos> targetMask) {
+    Material material = world.getBlockAt(x, y, z).getType();
     if (!this.config.hiddenMaterials().contains(material)) {
-      return 0;
+      return false;
     }
-
 
     BlockPos pos = new BlockPos(x, y, z);
-    this.blockChangeSender.sendBlockChange(player, new Location(world, x, y, z),
-        this.config.replacementBlockData());
-    targetMask.add(pos);
-    return 1;
+    if (!targetMask.add(pos)) {
+      return false;
+    }
+
+    this.blockChangeSender.sendBlockChange(player, new Location(world, x, y, z), this.config.replacementBlockData());
+    return true;
   }
 
   private void restoreBlock(Player player, BlockPos pos) {
@@ -173,22 +151,4 @@ public final class AntiXRayService {
     BlockData blockData = world.getBlockAt(pos.x(), pos.y(), pos.z()).getBlockData();
     this.blockChangeSender.sendBlockChange(player, new Location(world, pos.x(), pos.y(), pos.z()), blockData);
   }
-
-
-  private int resolveChunkRadius(Player player) {
-    int radius = Math.max(0, this.config.chunkRadius());
-
-    if (!this.config.useClientViewDistance()) {
-      return radius;
-    }
-
-    int viewDistance = Bukkit.getViewDistance();
-    if (viewDistance > 0) {
-      radius = Math.max(radius, viewDistance);
-    }
-
-    return radius;
-  }
-
 }
-
