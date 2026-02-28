@@ -44,7 +44,7 @@ public final class AntiXRayConfig {
     int scanIntervalTicks = Math.max(1, config.getInt("scanIntervalTicks", 20));
     int chunkRadius = Math.max(0, config.getInt("chunkRadius", 1));
 
-    boolean useClientViewDistance = config.getBoolean("useClientViewDistance", false);
+    boolean useClientViewDistance = config.getBoolean("useClientViewDistance", true);
 
     int configuredMinY = config.getInt("minY", -64);
     int configuredMaxY = config.getInt("maxY", 64);
@@ -52,8 +52,8 @@ public final class AntiXRayConfig {
     int maxY = Math.max(configuredMinY, configuredMaxY);
 
     double viewConeDegrees = Math.min(180d, Math.max(1d, config.getDouble("viewConeDegrees", 100d)));
-    int maxReplacementsPerScan = Math.max(1, config.getInt("maxReplacementsPerScan", 800));
-    int maxRestoresPerScan = Math.max(1, config.getInt("maxRestoresPerScan", 400));
+    int maxReplacementsPerScan = Math.max(1, config.getInt("maxReplacementsPerScan", 20000));
+    int maxRestoresPerScan = Math.max(1, config.getInt("maxRestoresPerScan", 20000));
 
     Material replacement = Material.matchMaterial(config.getString("replacementMaterial", "STONE"));
     if (replacement == null || !replacement.isBlock()) {

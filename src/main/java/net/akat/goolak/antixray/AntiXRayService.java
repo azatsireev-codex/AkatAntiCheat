@@ -15,7 +15,6 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
-import org.bukkit.util.Vector;
 
 public final class AntiXRayService {
 
@@ -161,13 +160,6 @@ public final class AntiXRayService {
       return 0;
     }
 
-    if (!isEnclosed(block)) {
-      return 0;
-    }
-
-    if (isInsideViewCone(player, x + 0.5, y + 0.5, z + 0.5, this.config.viewConeDegrees())) {
-      return 0;
-    }
 
     BlockPos pos = new BlockPos(x, y, z);
     this.blockChangeSender.sendBlockChange(player, new Location(world, x, y, z),
@@ -181,7 +173,6 @@ public final class AntiXRayService {
     BlockData blockData = world.getBlockAt(pos.x(), pos.y(), pos.z()).getBlockData();
     this.blockChangeSender.sendBlockChange(player, new Location(world, pos.x(), pos.y(), pos.z()), blockData);
   }
-
 
 
   private int resolveChunkRadius(Player player) {
@@ -199,45 +190,5 @@ public final class AntiXRayService {
     return radius;
   }
 
-  private static boolean isChunkLoaded(World world, int blockX, int blockZ) {
-    return world.isChunkLoaded(blockX >> 4, blockZ >> 4);
-  }
-
-  static boolean isEnclosed(Block block) {
-    World world = block.getWorld();
-    int x = block.getX();
-    int y = block.getY();
-    int z = block.getZ();
-
-    return isOccluding(world, x + 1, y, z)
-        && isOccluding(world, x - 1, y, z)
-        && isOccluding(world, x, y + 1, z)
-        && isOccluding(world, x, y - 1, z)
-        && isOccluding(world, x, y, z + 1)
-        && isOccluding(world, x, y, z - 1);
-  }
-
-  static boolean isOccluding(World world, int x, int y, int z) {
-    if (!isChunkLoaded(world, x, z)) {
-      return false;
-    }
-
-    Material material = world.getBlockAt(x, y, z).getType();
-    return material.isOccluding() && material.isSolid();
-  }
-
-  static boolean isInsideViewCone(Player player, double x, double y, double z, double viewConeDegrees) {
-    Location eye = player.getEyeLocation();
-
-    Vector toBlock = new Vector(x - eye.getX(), y - eye.getY(), z - eye.getZ());
-    if (toBlock.lengthSquared() < 0.01) {
-      return true;
-    }
-
-    Vector direction = eye.getDirection();
-    double dot = direction.normalize().dot(toBlock.normalize());
-
-    double cosHalfFov = Math.cos(Math.toRadians(viewConeDegrees / 2d));
-    return dot >= cosHalfFov;
-  }
 }
+
