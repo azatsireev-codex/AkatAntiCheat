@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.UUID;
+import java.util.logging.Logger;
 import net.akat.goolak.ObfuscationResult;
 import net.akat.goolak.ObfuscationSystem;
 import net.akat.goolak.platform.BlockChangeSender;
@@ -18,6 +19,8 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 
 public final class AntiXRayService {
+
+  private static final Logger LOGGER = Bukkit.getLogger();
 
   private final BlockChangeSender blockChangeSender;
   private final ObfuscationSystem obfuscationSystem;
@@ -130,6 +133,9 @@ public final class AntiXRayService {
       BlockPos pos = entry.getKey();
       if (playerMask.add(pos)) {
         this.blockChangeSender.sendBlockChange(player, new Location(world, pos.x(), pos.y(), pos.z()), entry.getValue());
+        LOGGER.info("[GOOLak] Hidden block for " + player.getName() + ": "
+            + world.getBlockAt(pos.x(), pos.y(), pos.z()).getType() + " at "
+            + world.getName() + " " + pos.x() + " " + pos.y() + " " + pos.z());
       }
     }
   }
