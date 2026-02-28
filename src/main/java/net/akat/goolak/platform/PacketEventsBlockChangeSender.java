@@ -44,9 +44,9 @@ public final class PacketEventsBlockChangeSender implements BlockChangeSender {
       Class<?> packetEventsClass = Class.forName("com.github.retrooper.packetevents.PacketEvents");
       Method getApiMethod = packetEventsClass.getMethod("getAPI");
 
-      Object api = getApiMethod.invoke(null);
+      Object api = invokeMethod(getApiMethod, null);
       Method getPlayerManagerMethod = api.getClass().getMethod("getPlayerManager");
-      Object playerManager = getPlayerManagerMethod.invoke(api);
+      Object playerManager = invokeMethod(getPlayerManagerMethod, api);
       Method sendPacketMethod = playerManager.getClass().getMethod("sendPacket", Player.class, Object.class);
 
       Class<?> blockChangePacketClass =
@@ -73,20 +73,30 @@ public final class PacketEventsBlockChangeSender implements BlockChangeSender {
   @Override
   public void sendBlockChange(Player player, Location location, BlockData blockData) {
     try {
-      Object api = this.getApiMethod.invoke(null);
-      Object playerManager = this.getPlayerManagerMethod.invoke(api);
+      Object api = invokeMethod(this.getApiMethod, null);
+      Object playerManager = invokeMethod(this.getPlayerManagerMethod, api);
 
       Object blockPosition = this.blockPositionConstructor.newInstance(location.getBlockX(), location.getBlockY(),
           location.getBlockZ());
       String blockStateName = normalizeStateName(blockData.getAsString(false));
-      Object wrappedState = this.wrappedStateByStringMethod.invoke(null, blockStateName);
+      Object wrappedState = invokeMethod(this.wrappedStateByStringMethod, null, blockStateName);
       Object packet = this.packetConstructor.newInstance(blockPosition, wrappedState);
 
-      this.sendPacketMethod.invoke(playerManager, player, packet);
+      invokeMethod(this.sendPacketMethod, playerManager, player, packet);
     } catch (InstantiationException | IllegalAccessException | InvocationTargetException exception) {
       this.plugin.getLogger().log(Level.FINE,
           "PacketEvents send failed for " + player.getName() + ". Falling back to Bukkit sendBlockChange.", exception);
       player.sendBlockChange(location, blockData);
+    }
+  }
+
+  private static Object invokeMethod(Method method, Object instance, Object... args)
+      throws InvocationTargetException, IllegalAccessException {
+    try {
+      return method.invoke(instance, args);
+    } catch (IllegalAccessException exception) {
+      method.setAccessible(true);
+      return method.invoke(instance, args);
     }
   }
 
