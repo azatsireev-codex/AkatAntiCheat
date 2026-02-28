@@ -1,7 +1,5 @@
 package net.akat.goolak.antixray;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -101,8 +99,7 @@ public final class AntiXRayService {
     int centerChunkZ = location.getBlockZ() >> 4;
 
     Set<BlockPos> newMask = new HashSet<>();
-    int configuredReplacements = this.config.maxReplacementsPerScan();
-    int replacementsLeft = configuredReplacements > 0 ? configuredReplacements : Integer.MAX_VALUE;
+    int replacementsLeft = this.config.maxReplacementsPerScan();
     int radius = resolveChunkRadius(player);
 
     for (int chunkZ = centerChunkZ - radius; chunkZ <= centerChunkZ + radius && replacementsLeft > 0; chunkZ++) {
@@ -118,8 +115,7 @@ public final class AntiXRayService {
 
     Set<BlockPos> oldMask = this.activeMasks.get(player.getUniqueId());
     if (oldMask != null && !oldMask.isEmpty()) {
-      int configuredRestores = this.config.maxRestoresPerScan();
-      int restoresLeft = configuredRestores > 0 ? configuredRestores : Integer.MAX_VALUE;
+      int restoresLeft = this.config.maxRestoresPerScan();
       for (BlockPos oldPos : oldMask) {
         if (newMask.contains(oldPos)) {
           continue;
@@ -191,11 +187,11 @@ public final class AntiXRayService {
   private int resolveChunkRadius(Player player) {
     int radius = Math.max(0, this.config.chunkRadius());
 
-    int viewDistance = getClientViewDistance(player);
-    if (viewDistance <= 0) {
-      viewDistance = Bukkit.getViewDistance();
+    if (!this.config.useClientViewDistance()) {
+      return radius;
     }
 
+    int viewDistance = Bukkit.getViewDistance();
     if (viewDistance > 0) {
       radius = Math.max(radius, viewDistance);
     }
@@ -203,30 +199,30 @@ public final class AntiXRayService {
     return radius;
   }
 
-  private static int getClientViewDistance(Player player) {
-    try {
-      Method method = player.getClass().getMethod("getClientViewDistance");
-      Object value = method.invoke(player);
-      if (value instanceof Integer distance) {
-        return distance;
-      }
-    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
-      return -1;
-    }
-    return -1;
+  private static boolean isChunkLoaded(World world, int blockX, int blockZ) {
+    return world.isChunkLoaded(blockX >> 4, blockZ >> 4);
   }
 
   static boolean isEnclosed(Block block) {
-    return isOccluding(block.getRelative(1, 0, 0))
-        && isOccluding(block.getRelative(-1, 0, 0))
-        && isOccluding(block.getRelative(0, 1, 0))
-        && isOccluding(block.getRelative(0, -1, 0))
-        && isOccluding(block.getRelative(0, 0, 1))
-        && isOccluding(block.getRelative(0, 0, -1));
+    World world = block.getWorld();
+    int x = block.getX();
+    int y = block.getY();
+    int z = block.getZ();
+
+    return isOccluding(world, x + 1, y, z)
+        && isOccluding(world, x - 1, y, z)
+        && isOccluding(world, x, y + 1, z)
+        && isOccluding(world, x, y - 1, z)
+        && isOccluding(world, x, y, z + 1)
+        && isOccluding(world, x, y, z - 1);
   }
 
-  static boolean isOccluding(Block block) {
-    Material material = block.getType();
+  static boolean isOccluding(World world, int x, int y, int z) {
+    if (!isChunkLoaded(world, x, z)) {
+      return false;
+    }
+
+    Material material = world.getBlockAt(x, y, z).getType();
     return material.isOccluding() && material.isSolid();
   }
 

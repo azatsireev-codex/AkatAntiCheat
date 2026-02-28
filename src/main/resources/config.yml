@@ -1,11 +1,12 @@
 enabled: true
 scanIntervalTicks: 20
 chunkRadius: 1
+useClientViewDistance: false
 minY: -64
 maxY: 64
 viewConeDegrees: 100
-maxReplacementsPerScan: 0
-maxRestoresPerScan: 0
+maxReplacementsPerScan: 800
+maxRestoresPerScan: 400
 replacementMaterial: STONE
 hiddenMaterials:
   - DIAMOND_ORE

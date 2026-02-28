@@ -12,6 +12,7 @@ public final class AntiXRayConfig {
   private final boolean enabled;
   private final int scanIntervalTicks;
   private final int chunkRadius;
+  private final boolean useClientViewDistance;
   private final int minY;
   private final int maxY;
   private final double viewConeDegrees;
@@ -21,12 +22,13 @@ public final class AntiXRayConfig {
   private final BlockData replacementBlockData;
   private final Set<Material> hiddenMaterials;
 
-  private AntiXRayConfig(boolean enabled, int scanIntervalTicks, int chunkRadius, int minY, int maxY,
-      double viewConeDegrees, int maxReplacementsPerScan, int maxRestoresPerScan,
+  private AntiXRayConfig(boolean enabled, int scanIntervalTicks, int chunkRadius, boolean useClientViewDistance,
+      int minY, int maxY, double viewConeDegrees, int maxReplacementsPerScan, int maxRestoresPerScan,
       Material replacementMaterial, Set<Material> hiddenMaterials) {
     this.enabled = enabled;
     this.scanIntervalTicks = scanIntervalTicks;
     this.chunkRadius = chunkRadius;
+    this.useClientViewDistance = useClientViewDistance;
     this.minY = minY;
     this.maxY = maxY;
     this.viewConeDegrees = viewConeDegrees;
@@ -42,14 +44,16 @@ public final class AntiXRayConfig {
     int scanIntervalTicks = Math.max(1, config.getInt("scanIntervalTicks", 20));
     int chunkRadius = Math.max(0, config.getInt("chunkRadius", 1));
 
+    boolean useClientViewDistance = config.getBoolean("useClientViewDistance", false);
+
     int configuredMinY = config.getInt("minY", -64);
     int configuredMaxY = config.getInt("maxY", 64);
     int minY = Math.min(configuredMinY, configuredMaxY);
     int maxY = Math.max(configuredMinY, configuredMaxY);
 
     double viewConeDegrees = Math.min(180d, Math.max(1d, config.getDouble("viewConeDegrees", 100d)));
-    int maxReplacementsPerScan = Math.max(0, config.getInt("maxReplacementsPerScan", 0));
-    int maxRestoresPerScan = Math.max(0, config.getInt("maxRestoresPerScan", 0));
+    int maxReplacementsPerScan = Math.max(1, config.getInt("maxReplacementsPerScan", 800));
+    int maxRestoresPerScan = Math.max(1, config.getInt("maxRestoresPerScan", 400));
 
     Material replacement = Material.matchMaterial(config.getString("replacementMaterial", "STONE"));
     if (replacement == null || !replacement.isBlock()) {
@@ -70,13 +74,14 @@ public final class AntiXRayConfig {
       hiddenMaterials.add(Material.DEEPSLATE_DIAMOND_ORE);
     }
 
-    return new AntiXRayConfig(enabled, scanIntervalTicks, chunkRadius, minY, maxY, viewConeDegrees,
-        maxReplacementsPerScan, maxRestoresPerScan, replacement, hiddenMaterials);
+    return new AntiXRayConfig(enabled, scanIntervalTicks, chunkRadius, useClientViewDistance, minY, maxY,
+        viewConeDegrees, maxReplacementsPerScan, maxRestoresPerScan, replacement, hiddenMaterials);
   }
 
   boolean enabled() { return this.enabled; }
   int scanIntervalTicks() { return this.scanIntervalTicks; }
   int chunkRadius() { return this.chunkRadius; }
+  boolean useClientViewDistance() { return this.useClientViewDistance; }
   int minY() { return this.minY; }
   int maxY() { return this.maxY; }
   double viewConeDegrees() { return this.viewConeDegrees; }
